@@ -2,10 +2,18 @@ services:
   - type: web
     name: bookstore-backend
     env: node
+    nodeVersion: 18.17.0
     buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000 
+        value: 10000
+    buildFilter:
+      paths:
+        - package.json
+        - package-lock.json
+        - server.js
+        - bookstore.db
+        - node_modules/** 
