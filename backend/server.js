@@ -4,14 +4,18 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 // Enable CORS
 app.use(cors());
 app.use(express.json());
 
 // Connect to SQLite database
-const db = new sqlite3.Database(path.join(__dirname, '../bookstore.db'), (err) => {
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? path.join(__dirname, 'bookstore.db')
+  : path.join(__dirname, '../bookstore.db');
+
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error connecting to database:', err);
   } else {
