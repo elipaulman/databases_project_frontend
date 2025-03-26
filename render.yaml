@@ -6,4 +6,4 @@ services:
     staticPublishPath: ./build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://bookstore-backend.onrender.com 
+        value: https://bookstore-backend-vn17.onrender.com 
