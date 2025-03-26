@@ -3,11 +3,10 @@ export interface Book {
   Title: string;
   Year: number;
   Price: number;
-  PublisherID: string;
   CategoryID: string;
-  Publisher?: Publisher;
-  Category?: Category;
-  Authors?: string;
+  CategoryName: string;
+  PublisherName: string;
+  Authors: string;
 }
 
 export interface Author {
@@ -34,16 +33,14 @@ export interface Customer {
   Address: string;
   Email: string;
   PhoneNumber: string;
-  Orders?: CustomerOrder[];
 }
 
-export interface CustomerOrder {
+export interface Order {
   OrderID: string;
   CustomerID: string;
   OrderDate: string;
   OrderTotal: number;
-  Customer?: Customer;
-  OrderItems?: OrderItem[];
+  CustomerName: string;
 }
 
 export interface OrderItem {
@@ -52,14 +49,29 @@ export interface OrderItem {
   ISBN: string;
   Quantity: number;
   Price: number;
-  Book?: Book;
-  Order?: CustomerOrder;
+  BookTitle: string;
 }
 
 export interface Inventory {
   ISBN: string;
   StockQuantity: number;
-  Book?: Book;
+  BookTitle: string;
+}
+
+export interface NewOrderItem {
+  ISBN: string;
+  Quantity: number;
+  Price: number;
+}
+
+export interface NewOrder {
+  CustomerID: string;
+  items: NewOrderItem[];
+}
+
+export interface InventoryUpdate {
+  ISBN: string;
+  StockQuantity: number;
 }
 
 export interface BookDemand {
@@ -75,4 +87,12 @@ export interface ProfitMargin {
   SalesTotal: number;
   CostTotal: number;
   Book?: Book;
+}
+
+export interface CustomerOrder {
+  OrderID: string;
+  CustomerID: string;
+  OrderDate: string;
+  OrderTotal: number;
+  CustomerName: string;
 } 

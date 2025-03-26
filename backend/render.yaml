@@ -16,4 +16,6 @@ services:
         - package-lock.json
         - server.js
         - bookstore.db
+        - sql_creates.sqlite
+        - sql_inserts.sqlite
         - node_modules/** 

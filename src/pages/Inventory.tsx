@@ -3,6 +3,7 @@ import { Box, Typography, Grid, Card, CardContent, FormControl, InputLabel, Sele
 import DataTable from '../components/DataTable';
 import { Inventory as InventoryType, Book, BookDemand } from '../types';
 import { API_BASE_URL } from '../config';
+import ManageInventory from '../components/ManageInventory';
 
 interface InventoryWithDetails extends InventoryType {
   title: string;
@@ -305,6 +306,8 @@ const Inventory: React.FC = () => {
           />
         </CardContent>
       </Card>
+
+      <ManageInventory />
     </Box>
   );
 };

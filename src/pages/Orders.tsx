@@ -1,44 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Grid, Card, CardContent, FormControl, InputLabel, Select, MenuItem, useTheme } from '@mui/material';
+import { 
+  Box, 
+  Typography, 
+  Grid, 
+  Card, 
+  CardContent, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem, 
+  useTheme,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import DataTable from '../components/DataTable';
 import { CustomerOrder, Customer } from '../types';
 import { API_BASE_URL } from '../config';
+import CreateOrder from '../components/CreateOrder';
 
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetError, setResetError] = useState<string>('');
+  const [resetSuccess, setResetSuccess] = useState<string>('');
   const theme = useTheme();
 
   const columns = [
-    { id: 'OrderID' as keyof CustomerOrder, label: 'Order ID', minWidth: 100 },
-    { id: 'CustomerID' as keyof CustomerOrder, label: 'Customer ID', minWidth: 100 },
-    { id: 'OrderDate' as keyof CustomerOrder, label: 'Order Date', minWidth: 150 },
-    { id: 'OrderTotal' as keyof CustomerOrder, label: 'Total', minWidth: 100, format: (value: number) => `$${value.toFixed(2)}` },
+    { id: 'OrderID', label: 'Order ID', minWidth: 100 },
+    { id: 'CustomerID', label: 'Customer ID', minWidth: 100 },
+    { id: 'OrderDate', label: 'Order Date', minWidth: 150 },
+    { id: 'OrderTotal', label: 'Total', minWidth: 100, format: (value: number) => `$${value.toFixed(2)}` },
   ];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [ordersResponse, customersResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/orders`),
-          fetch(`${API_BASE_URL}/api/customers`)
-        ]);
+  const fetchData = async () => {
+    try {
+      const [ordersResponse, customersResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/orders`),
+        fetch(`${API_BASE_URL}/api/customers`)
+      ]);
 
-        if (!ordersResponse.ok || !customersResponse.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const ordersData = await ordersResponse.json();
-        const customersData = await customersResponse.json();
-
-        setOrders(ordersData);
-        setCustomers(customersData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      if (!ordersResponse.ok || !customersResponse.ok) {
+        throw new Error('Failed to fetch data');
       }
-    };
 
+      const ordersData = await ordersResponse.json();
+      const customersData = await customersResponse.json();
+
+      setOrders(ordersData);
+      setCustomers(customersData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -53,23 +74,56 @@ const Orders: React.FC = () => {
     return getTotalRevenue() / filteredOrders.length;
   };
 
+  const handleResetDatabase = async () => {
+    setResetError('');
+    setResetSuccess('');
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/reset-db`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reset database');
+      }
+
+      setResetSuccess('Database reset successful! Refreshing data...');
+      setResetDialogOpen(false);
+      
+      // Refresh data after a short delay
+      setTimeout(() => {
+        fetchData();
+      }, 1000);
+    } catch (error) {
+      setResetError('Failed to reset database. Please try again.');
+      console.error('Error resetting database:', error);
+    }
+  };
+
   return (
     <Box sx={{ p: 3, background: 'linear-gradient(135deg, #f5f5f7 0%, #ffffff 100%)', minHeight: '100vh' }}>
-      <Typography
-        variant="h4"
-        gutterBottom
-        sx={{
-          fontWeight: 700,
-          color: 'text.primary',
-          mb: 4,
-          background: 'linear-gradient(45deg, #007AFF 30%, #5856D6 90%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textAlign: 'center',
-        }}
-      >
-        Orders Database
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 700,
+            color: 'text.primary',
+            background: 'linear-gradient(45deg, #007AFF 30%, #5856D6 90%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Orders Database
+        </Typography>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<RefreshIcon />}
+          onClick={() => setResetDialogOpen(true)}
+        >
+          Reset Database
+        </Button>
+      </Box>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
@@ -246,6 +300,43 @@ const Orders: React.FC = () => {
           />
         </CardContent>
       </Card>
+
+      <CreateOrder />
+
+      <Dialog open={resetDialogOpen} onClose={() => setResetDialogOpen(false)}>
+        <DialogTitle>Reset Database</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to reset the database? This will:
+          </Typography>
+          <ul>
+            <li>Delete all existing data</li>
+            <li>Recreate all tables</li>
+            <li>Insert fresh sample data</li>
+          </ul>
+          <Typography color="error">
+            This action cannot be undone!
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleResetDatabase} color="error" variant="contained">
+            Reset Database
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {resetError && (
+        <Typography color="error" sx={{ mt: 2 }}>
+          {resetError}
+        </Typography>
+      )}
+
+      {resetSuccess && (
+        <Typography color="success.main" sx={{ mt: 2 }}>
+          {resetSuccess}
+        </Typography>
+      )}
     </Box>
   );
 };

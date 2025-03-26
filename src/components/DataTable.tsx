@@ -11,7 +11,10 @@ import {
   Box,
   TablePagination,
   useTheme,
+  TextField,
+  TableSortLabel,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 
 interface Column {
   id: string;
@@ -30,6 +33,9 @@ interface DataTableProps {
 const DataTable: React.FC<DataTableProps> = ({ columns, rows, title }) => {
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [orderBy, setOrderBy] = React.useState<string>('');
+  const [order, setOrder] = React.useState<'asc' | 'desc'>('asc');
   const theme = useTheme();
 
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -40,6 +46,40 @@ const DataTable: React.FC<DataTableProps> = ({ columns, rows, title }) => {
     setRowsPerPage(+event.target.value);
     setPage(0);
   };
+
+  const handleRequestSort = (property: string) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const filteredAndSortedRows = React.useMemo(() => {
+    let filteredRows = rows.filter(row => {
+      if (!searchTerm) return true;
+      return Object.values(row).some(value => 
+        String(value).toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
+
+    if (orderBy) {
+      filteredRows.sort((a, b) => {
+        const aValue = a[orderBy];
+        const bValue = b[orderBy];
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return order === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        return order === 'asc'
+          ? aValue - bValue
+          : bValue - aValue;
+      });
+    }
+
+    return filteredRows;
+  }, [rows, searchTerm, orderBy, order]);
 
   return (
     <Paper
@@ -53,16 +93,33 @@ const DataTable: React.FC<DataTableProps> = ({ columns, rows, title }) => {
       }}
     >
       <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography
-          variant="h5"
-          component="h2"
-          sx={{
-            fontWeight: 600,
-            color: 'text.primary',
-          }}
-        >
-          {title}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography
+            variant="h5"
+            component="h2"
+            sx={{
+              fontWeight: 600,
+              color: 'text.primary',
+            }}
+          >
+            {title}
+          </Typography>
+          <TextField
+            size="small"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
+            }}
+            sx={{
+              width: 300,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+              },
+            }}
+          />
+        </Box>
       </Box>
 
       <TableContainer sx={{ maxHeight: 440 }}>
@@ -84,13 +141,19 @@ const DataTable: React.FC<DataTableProps> = ({ columns, rows, title }) => {
                     py: 2,
                   }}
                 >
-                  {column.label}
+                  <TableSortLabel
+                    active={orderBy === column.id}
+                    direction={orderBy === column.id ? order : 'asc'}
+                    onClick={() => handleRequestSort(column.id)}
+                  >
+                    {column.label}
+                  </TableSortLabel>
                 </TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows
+            {filteredAndSortedRows
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
               .map((row, index) => (
                 <TableRow
@@ -130,7 +193,7 @@ const DataTable: React.FC<DataTableProps> = ({ columns, rows, title }) => {
       <TablePagination
         rowsPerPageOptions={[10, 25, 100]}
         component="div"
-        count={rows.length}
+        count={filteredAndSortedRows.length}
         rowsPerPage={rowsPerPage}
         page={page}
         onPageChange={handleChangePage}
