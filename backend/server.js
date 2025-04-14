@@ -949,51 +949,86 @@ app.post('/api/customers', (req, res) => {
   
   console.log('Creating new customer:', { Name, Email, PhoneNumber });
   
-  db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
+  // First check if the customer_contact table exists
+  db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='customer_contact'", [], (err, tableExists) => {
+    if (err) {
+      console.error('Error checking for customer_contact table:', err);
+      return res.status(500).json({ error: err.message });
+    }
     
-    // Generate a unique customer ID
-    const customerID = `CUST${Date.now()}${Math.floor(Math.random() * 1000)}`;
-    
-    // Insert into customer table
-    db.run(
-      'INSERT INTO customer (CustomerID, Name, Address) VALUES (?, ?, ?)',
-      [customerID, Name, Address || ''],
-      function(err) {
-        if (err) {
-          console.error('Error creating customer:', err);
-          db.run('ROLLBACK');
-          return res.status(500).json({ error: err.message });
-        }
-        
-        // Insert into customer_contact table
-        db.run(
-          'INSERT INTO customer_contact (CustomerID, Email, PhoneNumber) VALUES (?, ?, ?)',
-          [customerID, Email, PhoneNumber],
-          function(err) {
-            if (err) {
-              console.error('Error creating customer contact:', err);
-              db.run('ROLLBACK');
-              return res.status(500).json({ error: err.message });
-            }
-            
-            db.run('COMMIT', (err) => {
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION');
+      
+      // Generate a unique customer ID
+      const customerID = `CUST${Date.now()}${Math.floor(Math.random() * 1000)}`;
+      
+      // Insert into customer table
+      db.run(
+        'INSERT INTO customer (CustomerID, Name, Address) VALUES (?, ?, ?)',
+        [customerID, Name, Address || ''],
+        function(err) {
+          if (err) {
+            console.error('Error creating customer:', err);
+            db.run('ROLLBACK');
+            return res.status(500).json({ error: err.message });
+          }
+          
+          // If customer_contact table doesn't exist, create it first
+          if (!tableExists) {
+            console.log('customer_contact table not found, creating it');
+            db.run(`
+              CREATE TABLE IF NOT EXISTS customer_contact (
+                CustomerID TEXT PRIMARY KEY,
+                Email TEXT UNIQUE NOT NULL,
+                PhoneNumber TEXT UNIQUE NOT NULL,
+                FOREIGN KEY (CustomerID) REFERENCES customer(CustomerID) ON DELETE CASCADE
+              )
+            `, [], function(err) {
               if (err) {
-                console.error('Error committing transaction:', err);
+                console.error('Error creating customer_contact table:', err);
                 db.run('ROLLBACK');
                 return res.status(500).json({ error: err.message });
               }
               
-              console.log('Customer created successfully:', customerID);
-              res.status(201).json({
-                message: 'Customer created successfully',
-                customerID: customerID
-              });
+              // Now insert into the newly created table
+              insertContactInfo();
             });
+          } else {
+            // The table exists, just insert the contact info
+            insertContactInfo();
           }
-        );
-      }
-    );
+          
+          // Helper function to insert into customer_contact table
+          function insertContactInfo() {
+            db.run(
+              'INSERT INTO customer_contact (CustomerID, Email, PhoneNumber) VALUES (?, ?, ?)',
+              [customerID, Email, PhoneNumber],
+              function(err) {
+                if (err) {
+                  console.error('Error creating customer contact:', err);
+                  db.run('ROLLBACK');
+                  return res.status(500).json({ error: err.message });
+                }
+                
+                db.run('COMMIT', (err) => {
+                  if (err) {
+                    console.error('Error committing transaction:', err);
+                    db.run('ROLLBACK');
+                    return res.status(500).json({ error: err.message });
+                  }
+                  
+                  console.log('Customer created successfully:', customerID);
+                  res.status(201).json({
+                    message: 'Customer created successfully',
+                    customerID: customerID
+                  });
+                });
+              }
+            );
+          }
+        }
+      );
+    });
   });
 });
 
