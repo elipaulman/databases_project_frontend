@@ -74,7 +74,22 @@ function initializeDatabase() {
     return;
   }
 
-  // Check if we need to initialize the database
+  // In production, always reset the database on startup
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Production environment detected. Forcing complete database reset...');
+    
+    resetDatabase(createSQL, insertSQL, (success) => {
+      if (success) {
+        console.log('Database reset and initialization completed successfully');
+        initializeAnalyticsData();
+      } else {
+        console.error('Database reset failed');
+      }
+    });
+    return;
+  }
+
+  // For development environment, only initialize if needed
   db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='book'", [], (err, row) => {
     if (err) {
       console.error('Error checking database tables:', err);
@@ -122,6 +137,86 @@ function initializeDatabase() {
       // Check if we need to initialize analytics data
       checkAndInitAnalytics();
     }
+  });
+}
+
+// Function to completely reset and reinitialize the database
+function resetDatabase(createSQL, insertSQL, callback) {
+  console.log('Performing complete database reset...');
+  
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+
+    // Get all tables in the database
+    db.all("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", [], (err, tables) => {
+      if (err) {
+        console.error('Error getting tables:', err);
+        db.run('ROLLBACK');
+        if (callback) callback(false);
+        return;
+      }
+
+      console.log(`Found ${tables.length} tables to drop`);
+      
+      // Drop all tables
+      const dropPromises = tables.map(table => {
+        return new Promise((resolve, reject) => {
+          console.log(`Dropping table: ${table.name}`);
+          db.run(`DROP TABLE IF EXISTS ${table.name}`, [], function(err) {
+            if (err) {
+              console.error(`Error dropping table ${table.name}:`, err);
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        });
+      });
+
+      Promise.all(dropPromises)
+        .then(() => {
+          console.log('All tables dropped successfully. Creating new tables...');
+          
+          // Create tables
+          db.exec(createSQL, (err) => {
+            if (err) {
+              console.error('Error creating tables:', err);
+              db.run('ROLLBACK');
+              if (callback) callback(false);
+              return;
+            }
+            
+            console.log('Tables created successfully. Inserting initial data...');
+            
+            // Insert data
+            db.exec(insertSQL, (err) => {
+              if (err) {
+                console.error('Error inserting data:', err);
+                db.run('ROLLBACK');
+                if (callback) callback(false);
+                return;
+              }
+              
+              db.run('COMMIT', (err) => {
+                if (err) {
+                  console.error('Error committing transaction:', err);
+                  db.run('ROLLBACK');
+                  if (callback) callback(false);
+                  return;
+                }
+                
+                console.log('Database reset and initialization completed successfully');
+                if (callback) callback(true);
+              });
+            });
+          });
+        })
+        .catch((err) => {
+          console.error('Error dropping tables:', err);
+          db.run('ROLLBACK');
+          if (callback) callback(false);
+        });
+    });
   });
 }
 
@@ -382,17 +477,57 @@ app.get('/api/authors', (req, res) => {
 
 app.get('/api/customers', (req, res) => {
   console.log('Fetching customers...');
-  db.all(`
-    SELECT c.*, cc.Email, cc.PhoneNumber
-    FROM customer c
-    LEFT JOIN customer_contact cc ON c.CustomerID = cc.CustomerID
-  `, [], (err, rows) => {
+  
+  // First check if customer_contact table exists
+  db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='customer_contact'", [], (err, tableExists) => {
     if (err) {
-      console.error('Error fetching customers:', err);
+      console.error('Error checking for customer_contact table:', err);
       res.status(500).json({ error: err.message });
       return;
     }
-    console.log(`Found ${rows.length} customers`);
+    
+    // If customer_contact table doesn't exist, just return basic customer data
+    if (!tableExists) {
+      console.log('customer_contact table not found, returning basic customer data');
+      db.all('SELECT * FROM customer', [], (err, rows) => {
+        if (err) {
+          console.error('Error fetching basic customer data:', err);
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        console.log(`Found ${rows.length} customers (basic info only)`);
+        res.json(rows);
+      });
+      return;
+    }
+    
+    // If table exists, perform the join
+    db.all(`
+      SELECT c.*, cc.Email, cc.PhoneNumber
+      FROM customer c
+      LEFT JOIN customer_contact cc ON c.CustomerID = cc.CustomerID
+    `, [], (err, rows) => {
+      if (err) {
+        console.error('Error fetching customers with contact info:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      console.log(`Found ${rows.length} customers with contact info`);
+      res.json(rows);
+    });
+  });
+});
+
+// Add a basic customers endpoint to get just the customer data without the contact join
+app.get('/api/customers/basic', (req, res) => {
+  console.log('Fetching basic customer data (no contact info)...');
+  db.all('SELECT * FROM customer', [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching basic customer data:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    console.log(`Found ${rows.length} basic customers`);
     res.json(rows);
   });
 });

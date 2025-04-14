@@ -32,66 +32,111 @@ const CreateOrder: React.FC = () => {
   useEffect(() => {
     // Fetch customers, books, and inventory data
     const fetchData = async () => {
+      setLoading(true);
+      setError('');
+      
+      // Separate fetch calls to handle errors individually
       try {
-        setLoading(true);
-        const [customersRes, booksRes, inventoryRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/customers`),
-          fetch(`${API_BASE_URL}/api/books`),
-          fetch(`${API_BASE_URL}/api/inventory`),
-        ]);
-        
-        if (!customersRes.ok || !booksRes.ok || !inventoryRes.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const customersData = await customersRes.json();
-        const booksData = await booksRes.json();
-        const inventoryData = await inventoryRes.json();
-        
-        console.log('Loaded inventory data:', inventoryData);
-        
-        // Create inventory map for quick access
-        const invMap: {[isbn: string]: number} = {};
-        inventoryData.forEach((item: any) => {
-          invMap[item.ISBN] = item.StockQuantity;
-        });
-        
-        setCustomers(customersData);
-        setBooks(booksData);
-        setInventory(invMap);
-        
-        // Check if we have no inventory data and need to initialize it
-        if (inventoryData.length === 0) {
-          console.log('No inventory found, initializing inventory');
-          try {
-            const initRes = await fetch(`${API_BASE_URL}/api/init-inventory`, {
-              method: 'POST'
-            });
-            if (initRes.ok) {
-              const initData = await initRes.json();
-              console.log('Inventory initialized:', initData);
-              
-              // Fetch updated inventory after initialization
-              const updatedInventoryRes = await fetch(`${API_BASE_URL}/api/inventory`);
-              if (updatedInventoryRes.ok) {
-                const updatedInventoryData = await updatedInventoryRes.json();
-                const newInvMap: {[isbn: string]: number} = {};
-                updatedInventoryData.forEach((item: any) => {
-                  newInvMap[item.ISBN] = item.StockQuantity;
-                });
-                setInventory(newInvMap);
-              }
-            }
-          } catch (initErr) {
-            console.error('Error initializing inventory:', initErr);
-          }
+        const booksRes = await fetch(`${API_BASE_URL}/api/books`);
+        if (booksRes.ok) {
+          const booksData = await booksRes.json();
+          setBooks(booksData);
+        } else {
+          console.error('Failed to fetch books');
         }
       } catch (err) {
-        setError('Failed to load data');
-        console.error(err);
-      } finally {
-        setLoading(false);
+        console.error('Error fetching books:', err);
       }
+      
+      try {
+        const inventoryRes = await fetch(`${API_BASE_URL}/api/inventory`);
+        if (inventoryRes.ok) {
+          const inventoryData = await inventoryRes.json();
+          console.log('Loaded inventory data:', inventoryData);
+          
+          // Create inventory map for quick access
+          const invMap: {[isbn: string]: number} = {};
+          inventoryData.forEach((item: any) => {
+            invMap[item.ISBN] = item.StockQuantity;
+          });
+          setInventory(invMap);
+          
+          // Check if we have no inventory data and need to initialize it
+          if (inventoryData.length === 0) {
+            console.log('No inventory found, initializing inventory');
+            try {
+              const initRes = await fetch(`${API_BASE_URL}/api/init-inventory`, {
+                method: 'POST'
+              });
+              if (initRes.ok) {
+                const initData = await initRes.json();
+                console.log('Inventory initialized:', initData);
+                
+                // Fetch updated inventory after initialization
+                const updatedInventoryRes = await fetch(`${API_BASE_URL}/api/inventory`);
+                if (updatedInventoryRes.ok) {
+                  const updatedInventoryData = await updatedInventoryRes.json();
+                  const newInvMap: {[isbn: string]: number} = {};
+                  updatedInventoryData.forEach((item: any) => {
+                    newInvMap[item.ISBN] = item.StockQuantity;
+                  });
+                  setInventory(newInvMap);
+                }
+              }
+            } catch (initErr) {
+              console.error('Error initializing inventory:', initErr);
+            }
+          }
+        } else {
+          console.error('Failed to fetch inventory data');
+        }
+      } catch (err) {
+        console.error('Error fetching inventory:', err);
+      }
+      
+      // Try to fetch customer data - will try multiple approaches if needed
+      try {
+        // First try the regular customer endpoint (now with proper table existence checking)
+        const customersRes = await fetch(`${API_BASE_URL}/api/customers`);
+        
+        if (customersRes.ok) {
+          const customersData = await customersRes.json();
+          if (customersData && customersData.length > 0) {
+            console.log('Successfully loaded customers with full data');
+            setCustomers(customersData);
+          } else {
+            throw new Error('No customers found');
+          }
+        } else {
+          throw new Error(`Failed to fetch customers: ${customersRes.statusText}`);
+        }
+      } catch (err) {
+        console.error('Error with primary customer endpoint:', err);
+        
+        // If the main endpoint fails, try the basic endpoint
+        try {
+          console.log('Trying fallback customer endpoint...');
+          const basicCustomersRes = await fetch(`${API_BASE_URL}/api/customers/basic`);
+          
+          if (basicCustomersRes.ok) {
+            const basicCustomersData = await basicCustomersRes.json();
+            if (basicCustomersData && basicCustomersData.length > 0) {
+              console.log('Successfully loaded customers from basic endpoint');
+              setCustomers(basicCustomersData);
+              setError(''); // Clear any previous error
+            } else {
+              setError('Unable to load customer data. Please create customers first.');
+            }
+          } else {
+            setError('Unable to load customer data. Customer data may be missing.');
+          }
+        } catch (fallbackErr) {
+          console.error('Error with fallback customer endpoint:', fallbackErr);
+          setError('Failed to load customers. Please try refreshing the page.');
+        }
+      }
+      
+      setLoading(false);
     };
 
     fetchData();
