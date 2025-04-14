@@ -3,7 +3,7 @@ services:
     name: bookstore-backend
     env: node
     nodeVersion: 18.17.0
-    buildCommand: npm install
+    buildCommand: npm install && cp ../sql_creates.sqlite . && cp ../sql_inserts.sqlite .
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -18,4 +18,4 @@ services:
         - bookstore.db
         - sql_creates.sqlite
         - sql_inserts.sqlite
-        - node_modules/** 
+        - node_modules/**

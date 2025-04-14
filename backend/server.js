@@ -31,8 +31,316 @@ const db = new sqlite3.Database(dbPath, (err) => {
   } else {
     console.log('Connected to SQLite database');
     console.log('Database path:', dbPath);
+    
+    // Initialize the database if running in production (on Render)
+    if (process.env.NODE_ENV === 'production') {
+      initializeDatabase();
+    }
   }
 });
+
+// Function to initialize the database with tables and data
+function initializeDatabase() {
+  console.log('Initializing database for production environment...');
+  
+  // Determine the SQL file paths
+  let createSQLPath, insertSQLPath;
+  
+  if (process.env.NODE_ENV === 'production') {
+    // In production on Render.com, the files should be in the same directory as server.js
+    createSQLPath = path.join(__dirname, 'sql_creates.sqlite');
+    insertSQLPath = path.join(__dirname, 'sql_inserts.sqlite');
+  } else {
+    // In development, they're in the parent directory
+    createSQLPath = path.join(__dirname, '../sql_creates.sqlite');
+    insertSQLPath = path.join(__dirname, '../sql_inserts.sqlite'); 
+  }
+  
+  console.log('SQL paths:', { createSQLPath, insertSQLPath });
+  
+  // Check if SQL files exist
+  if (!fs.existsSync(createSQLPath) || !fs.existsSync(insertSQLPath)) {
+    console.error('SQL files not found at:', { createSQLPath, insertSQLPath });
+    return;
+  }
+  
+  // Read SQL files
+  let createSQL, insertSQL;
+  try {
+    createSQL = fs.readFileSync(createSQLPath, 'utf8');
+    insertSQL = fs.readFileSync(insertSQLPath, 'utf8');
+  } catch (err) {
+    console.error('Error reading SQL files:', err);
+    return;
+  }
+
+  // Check if we need to initialize the database
+  db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='book'", [], (err, row) => {
+    if (err) {
+      console.error('Error checking database tables:', err);
+      return;
+    }
+    
+    // If 'book' table doesn't exist, initialize the database
+    if (!row) {
+      console.log('Database needs initialization. Creating tables and inserting data...');
+      
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        
+        db.exec(createSQL, (err) => {
+          if (err) {
+            console.error('Error creating tables:', err);
+            db.run('ROLLBACK');
+            return;
+          }
+          
+          db.exec(insertSQL, (err) => {
+            if (err) {
+              console.error('Error inserting data:', err);
+              db.run('ROLLBACK');
+              return;
+            }
+            
+            db.run('COMMIT', (err) => {
+              if (err) {
+                console.error('Error committing transaction:', err);
+                return;
+              }
+              
+              console.log('Database initialized successfully');
+              
+              // Initialize analytics data
+              initializeAnalyticsData();
+            });
+          });
+        });
+      });
+    } else {
+      console.log('Database already initialized');
+      
+      // Check if we need to initialize analytics data
+      checkAndInitAnalytics();
+    }
+  });
+}
+
+// Function to check if analytics data needs initialization
+function checkAndInitAnalytics() {
+  db.all("SELECT * FROM profitMargin WHERE SalesTotal > 0 LIMIT 1", [], (err, rows) => {
+    if (err) {
+      console.error('Error checking analytics data:', err);
+      return;
+    }
+    
+    if (rows && rows.length === 0) {
+      console.log('Analytics data needs initialization');
+      initializeAnalyticsData();
+    } else {
+      console.log('Analytics data already initialized');
+    }
+  });
+}
+
+// Function to initialize analytics data
+function initializeAnalyticsData() {
+  console.log('Initializing analytics data...');
+  
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+    
+    // First get all order items
+    db.all(`
+      SELECT oi.ISBN, oi.Quantity, oi.Price
+      FROM orderItem oi
+    `, [], (err, items) => {
+      if (err) {
+        console.error('Error finding order items:', err);
+        db.run('ROLLBACK');
+        return;
+      }
+      
+      if (items.length === 0) {
+        console.log('No order items found, creating sample orders');
+        createSampleOrders();
+        return;
+      }
+      
+      console.log(`Found ${items.length} order items to process for analytics`);
+      
+      // Group items by ISBN to calculate totals
+      const bookAnalytics = {};
+      
+      items.forEach(item => {
+        const { ISBN, Quantity, Price } = item;
+        if (!bookAnalytics[ISBN]) {
+          bookAnalytics[ISBN] = {
+            salesTotal: 0,
+            costTotal: 0,
+            popularity: 0
+          };
+        }
+        
+        const salesAmount = Price * Quantity;
+        const costAmount = salesAmount * 0.6; // Assume 60% cost
+        
+        bookAnalytics[ISBN].salesTotal += salesAmount;
+        bookAnalytics[ISBN].costTotal += costAmount;
+        bookAnalytics[ISBN].popularity += Quantity;
+      });
+      
+      // Update profit margin and book demand for each book
+      const bookPromises = Object.entries(bookAnalytics).map(([isbn, data]) => {
+        return new Promise((resolve, reject) => {
+          // Update profit margin
+          db.run(
+            'UPDATE profitMargin SET SalesTotal = ?, CostTotal = ? WHERE ISBN = ?',
+            [data.salesTotal, data.costTotal, isbn],
+            function(err) {
+              if (err) {
+                return reject(err);
+              }
+              
+              // Update book demand
+              db.run(
+                'UPDATE bookDemand SET Popularity = ? WHERE ISBN = ?',
+                [data.popularity, isbn],
+                function(err) {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve();
+                }
+              );
+            }
+          );
+        });
+      });
+      
+      Promise.all(bookPromises)
+        .then(() => {
+          db.run('COMMIT', (err) => {
+            if (err) {
+              console.error('Error committing transaction:', err);
+              db.run('ROLLBACK');
+              return;
+            }
+            console.log('Analytics data initialized successfully');
+          });
+        })
+        .catch((err) => {
+          console.error('Error updating analytics data:', err);
+          db.run('ROLLBACK');
+        });
+    });
+  });
+}
+
+// Function to create sample orders if none exist
+function createSampleOrders() {
+  console.log('Creating sample orders...');
+  
+  // First check if we have customers and books
+  Promise.all([
+    new Promise((resolve, reject) => {
+      db.get("SELECT CustomerID FROM customer LIMIT 1", [], (err, customer) => {
+        if (err) reject(err);
+        else resolve(customer ? customer.CustomerID : null);
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.all("SELECT ISBN, Price FROM book LIMIT 3", [], (err, books) => {
+        if (err) reject(err);
+        else resolve(books || []);
+      });
+    })
+  ]).then(([customerId, books]) => {
+    if (!customerId || !books.length) {
+      console.log('No customers or books available for sample orders');
+      return;
+    }
+    
+    const orderId = `ORD${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION');
+      
+      db.run(
+        'INSERT INTO customer_order (OrderID, CustomerID, OrderDate) VALUES (?, ?, CURRENT_DATE)',
+        [orderId, customerId],
+        function(err) {
+          if (err) {
+            console.error('Error creating sample order:', err);
+            db.run('ROLLBACK');
+            return;
+          }
+          
+          const itemPromises = books.map((book, index) => {
+            return new Promise((resolve, reject) => {
+              const orderItemId = `ITEM${Date.now()}${index}${Math.floor(Math.random() * 1000)}`;
+              const quantity = Math.floor(Math.random() * 3) + 1; // Random quantity 1-3
+              const price = book.Price;
+              
+              db.run(
+                'INSERT INTO orderItem (OrderItemID, OrderID, ISBN, Quantity, Price) VALUES (?, ?, ?, ?, ?)',
+                [orderItemId, orderId, book.ISBN, quantity, price],
+                function(err) {
+                  if (err) return reject(err);
+                  
+                  const salesAmount = price * quantity;
+                  const costAmount = salesAmount * 0.6;
+                  
+                  db.run(
+                    'UPDATE inventory SET StockQuantity = StockQuantity - ? WHERE ISBN = ?',
+                    [quantity, book.ISBN],
+                    function(err) {
+                      if (err) return reject(err);
+                      
+                      db.run(
+                        'UPDATE profitMargin SET SalesTotal = SalesTotal + ?, CostTotal = CostTotal + ? WHERE ISBN = ?',
+                        [salesAmount, costAmount, book.ISBN],
+                        function(err) {
+                          if (err) return reject(err);
+                          
+                          db.run(
+                            'UPDATE bookDemand SET Popularity = Popularity + ? WHERE ISBN = ?',
+                            [quantity, book.ISBN],
+                            function(err) {
+                              if (err) return reject(err);
+                              resolve();
+                            }
+                          );
+                        }
+                      );
+                    }
+                  );
+                }
+              );
+            });
+          });
+          
+          Promise.all(itemPromises)
+            .then(() => {
+              db.run('COMMIT', (err) => {
+                if (err) {
+                  console.error('Error committing sample orders transaction:', err);
+                  db.run('ROLLBACK');
+                  return;
+                }
+                console.log('Sample orders created successfully');
+              });
+            })
+            .catch((err) => {
+              console.error('Error creating sample order items:', err);
+              db.run('ROLLBACK');
+            });
+        }
+      );
+    });
+  }).catch(err => {
+    console.error('Error checking for customers and books:', err);
+  });
+}
 
 // Add a health check endpoint
 app.get('/health', (req, res) => {
