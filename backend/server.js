@@ -282,7 +282,12 @@ app.post('/api/orders', (req, res) => {
                   return reject(err);
                 }
 
-                // Update inventory
+                // Calculate the total sales amount for this item
+                const salesAmount = item.Price * item.Quantity;
+                // Assume cost is 60% of the price (40% profit margin)
+                const costAmount = salesAmount * 0.6;
+
+                // Update the inventory
                 db.run(
                   'UPDATE inventory SET StockQuantity = StockQuantity - ? WHERE ISBN = ?',
                   [item.Quantity, item.ISBN],
@@ -290,7 +295,32 @@ app.post('/api/orders', (req, res) => {
                     if (err) {
                       return reject(err);
                     }
-                    resolve();
+
+                    // Update the profit margins (sales and costs)
+                    db.run(
+                      'UPDATE profitMargin SET SalesTotal = SalesTotal + ?, CostTotal = CostTotal + ? WHERE ISBN = ?',
+                      [salesAmount, costAmount, item.ISBN],
+                      function(err) {
+                        if (err) {
+                          console.error('Error updating profit margins:', err);
+                          // Continue anyway, don't fail the order
+                        }
+
+                        // Increase book popularity based on quantity sold
+                        db.run(
+                          'UPDATE bookDemand SET Popularity = Popularity + ? WHERE ISBN = ?',
+                          [item.Quantity, item.ISBN],
+                          function(err) {
+                            if (err) {
+                              console.error('Error updating book demand:', err);
+                              // Continue anyway, don't fail the order
+                            }
+                            
+                            resolve();
+                          }
+                        );
+                      }
+                    );
                   }
                 );
               }
@@ -679,6 +709,104 @@ app.post('/api/books', (req, res) => {
           });
       }
     );
+  });
+});
+
+// Initialize analytics data for existing orders
+app.post('/api/init-analytics', (req, res) => {
+  console.log('Initializing analytics data for existing orders...');
+  
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+    
+    // First get all order items
+    db.all(`
+      SELECT oi.ISBN, oi.Quantity, oi.Price
+      FROM orderItem oi
+    `, [], (err, items) => {
+      if (err) {
+        console.error('Error finding order items:', err);
+        db.run('ROLLBACK');
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (items.length === 0) {
+        console.log('No order items found');
+        return res.json({ message: 'No order items found to process' });
+      }
+      
+      console.log(`Found ${items.length} order items to process for analytics`);
+      
+      // Group items by ISBN to calculate totals
+      const bookAnalytics = {};
+      
+      items.forEach(item => {
+        const { ISBN, Quantity, Price } = item;
+        if (!bookAnalytics[ISBN]) {
+          bookAnalytics[ISBN] = {
+            salesTotal: 0,
+            costTotal: 0,
+            popularity: 0
+          };
+        }
+        
+        const salesAmount = Price * Quantity;
+        const costAmount = salesAmount * 0.6; // Assume 60% cost
+        
+        bookAnalytics[ISBN].salesTotal += salesAmount;
+        bookAnalytics[ISBN].costTotal += costAmount;
+        bookAnalytics[ISBN].popularity += Quantity;
+      });
+      
+      // Update profit margin and book demand for each book
+      const bookPromises = Object.entries(bookAnalytics).map(([isbn, data]) => {
+        return new Promise((resolve, reject) => {
+          // Update profit margin
+          db.run(
+            'UPDATE profitMargin SET SalesTotal = ?, CostTotal = ? WHERE ISBN = ?',
+            [data.salesTotal, data.costTotal, isbn],
+            function(err) {
+              if (err) {
+                return reject(err);
+              }
+              
+              // Update book demand
+              db.run(
+                'UPDATE bookDemand SET Popularity = ? WHERE ISBN = ?',
+                [data.popularity, isbn],
+                function(err) {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve();
+                }
+              );
+            }
+          );
+        });
+      });
+      
+      Promise.all(bookPromises)
+        .then(() => {
+          db.run('COMMIT', (err) => {
+            if (err) {
+              console.error('Error committing transaction:', err);
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: err.message });
+            }
+            console.log('Analytics data initialized successfully');
+            res.json({ 
+              message: 'Analytics data initialized successfully',
+              booksProcessed: Object.keys(bookAnalytics).length
+            });
+          });
+        })
+        .catch((err) => {
+          console.error('Error updating analytics data:', err);
+          db.run('ROLLBACK');
+          res.status(500).json({ error: err.message });
+        });
+    });
   });
 });
 
