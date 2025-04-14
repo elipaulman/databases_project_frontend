@@ -180,7 +180,9 @@ const DataTable: React.FC<DataTableProps> = ({ columns, rows, title }) => {
                           py: 2,
                         }}
                       >
-                        {column.format ? column.format(value) : value}
+                        {column.format && value !== undefined && value !== null 
+                          ? column.format(value) 
+                          : value}
                       </TableCell>
                     );
                   })}
@@ -217,4 +219,4 @@ const DataTable: React.FC<DataTableProps> = ({ columns, rows, title }) => {
   );
 };
 
-export default DataTable; 
+export default DataTable;

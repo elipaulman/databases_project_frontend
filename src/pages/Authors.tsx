@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Grid, Card, CardContent, FormControl, InputLabel, Select, MenuItem, useTheme } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, FormControl, InputLabel, Select, MenuItem, useTheme, Button, Collapse } from '@mui/material';
 import DataTable from '../components/DataTable';
+import CreateAuthor from '../components/CreateAuthor';
 import { Author, Book } from '../types';
 import { API_BASE_URL } from '../config';
 
@@ -12,6 +13,7 @@ const Authors: React.FC = () => {
   const [authors, setAuthors] = useState<Author[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
   const [selectedAuthor, setSelectedAuthor] = useState<string>('');
+  const [showAddForm, setShowAddForm] = useState(false);
   const theme = useTheme();
 
   const columns = [
@@ -20,27 +22,27 @@ const Authors: React.FC = () => {
     { id: 'bookCount' as keyof AuthorWithStats, label: 'Books Published', minWidth: 150 },
   ];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [authorsResponse, booksResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/authors`),
-          fetch(`${API_BASE_URL}/api/books`)
-        ]);
-        
-        if (!authorsResponse.ok || !booksResponse.ok) {
-          throw new Error('Failed to fetch data');
-        }
-        
-        const authorsData = await authorsResponse.json();
-        const booksData = await booksResponse.json();
-        setAuthors(authorsData);
-        setBooks(booksData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+  const fetchData = async () => {
+    try {
+      const [authorsResponse, booksResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/authors`),
+        fetch(`${API_BASE_URL}/api/books`)
+      ]);
+      
+      if (!authorsResponse.ok || !booksResponse.ok) {
+        throw new Error('Failed to fetch data');
       }
-    };
+      
+      const authorsData = await authorsResponse.json();
+      const booksData = await booksResponse.json();
+      setAuthors(authorsData);
+      setBooks(booksData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -85,6 +87,21 @@ const Authors: React.FC = () => {
       >
         Authors Database
       </Typography>
+
+      <Button 
+        variant="contained" 
+        color="primary" 
+        sx={{ mb: 3 }}
+        onClick={() => setShowAddForm(!showAddForm)}
+      >
+        {showAddForm ? 'Hide Add Author Form' : 'Add New Author'}
+      </Button>
+
+      <Collapse in={showAddForm}>
+        <Box sx={{ mb: 3 }}>
+          <CreateAuthor onSuccess={fetchData} />
+        </Box>
+      </Collapse>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
@@ -265,4 +282,4 @@ const Authors: React.FC = () => {
   );
 };
 
-export default Authors; 
+export default Authors;

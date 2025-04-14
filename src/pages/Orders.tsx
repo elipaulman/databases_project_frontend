@@ -35,7 +35,12 @@ const Orders: React.FC = () => {
     { id: 'OrderID', label: 'Order ID', minWidth: 100 },
     { id: 'CustomerID', label: 'Customer ID', minWidth: 100 },
     { id: 'OrderDate', label: 'Order Date', minWidth: 150 },
-    { id: 'OrderTotal', label: 'Total', minWidth: 100, format: (value: number) => `$${value.toFixed(2)}` },
+    { 
+      id: 'OrderTotal', 
+      label: 'Total', 
+      minWidth: 100, 
+      format: (value: number | null | undefined) => value !== null && value !== undefined ? `$${Number(value).toFixed(2)}` : '$0.00'
+    },
   ];
 
   const fetchData = async () => {
@@ -52,7 +57,15 @@ const Orders: React.FC = () => {
       const ordersData = await ordersResponse.json();
       const customersData = await customersResponse.json();
 
-      setOrders(ordersData);
+      console.log('Orders data:', ordersData); // Debug log to see the data structure
+      
+      // Ensure OrderTotal is a number
+      const processedOrders = ordersData.map((order: any) => ({
+        ...order,
+        OrderTotal: order.OrderTotal !== null && order.OrderTotal !== undefined ? Number(order.OrderTotal) : 0
+      }));
+
+      setOrders(processedOrders);
       setCustomers(customersData);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -68,10 +81,19 @@ const Orders: React.FC = () => {
     : orders;
 
   const getTotalOrders = () => filteredOrders.length;
-  const getTotalRevenue = () => filteredOrders.reduce((sum, order) => sum + order.OrderTotal, 0);
+  
+  const getTotalRevenue = () => {
+    return filteredOrders.reduce((sum, order) => {
+      // Ensure OrderTotal is always treated as a number
+      const orderTotal = order.OrderTotal !== null && order.OrderTotal !== undefined ? Number(order.OrderTotal) : 0;
+      return sum + orderTotal;
+    }, 0);
+  };
+  
   const getAverageOrderValue = () => {
     if (filteredOrders.length === 0) return 0;
-    return getTotalRevenue() / filteredOrders.length;
+    const totalRevenue = getTotalRevenue();
+    return totalRevenue / filteredOrders.length;
   };
 
   const handleResetDatabase = async () => {
@@ -341,4 +363,4 @@ const Orders: React.FC = () => {
   );
 };
 
-export default Orders; 
+export default Orders;

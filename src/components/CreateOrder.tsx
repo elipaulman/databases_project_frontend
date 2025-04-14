@@ -11,6 +11,8 @@ import {
   Paper,
   IconButton,
   Grid,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -24,28 +26,71 @@ const CreateOrder: React.FC = () => {
   const [orderItems, setOrderItems] = useState<NewOrderItem[]>([]);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [inventory, setInventory] = useState<{[isbn: string]: number}>({});
 
   useEffect(() => {
-    // Fetch customers and books
+    // Fetch customers, books, and inventory data
     const fetchData = async () => {
       try {
-        const [customersRes, booksRes] = await Promise.all([
+        setLoading(true);
+        const [customersRes, booksRes, inventoryRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/customers`),
           fetch(`${API_BASE_URL}/api/books`),
+          fetch(`${API_BASE_URL}/api/inventory`),
         ]);
         
-        if (!customersRes.ok || !booksRes.ok) {
+        if (!customersRes.ok || !booksRes.ok || !inventoryRes.ok) {
           throw new Error('Failed to fetch data');
         }
 
         const customersData = await customersRes.json();
         const booksData = await booksRes.json();
+        const inventoryData = await inventoryRes.json();
+        
+        console.log('Loaded inventory data:', inventoryData);
+        
+        // Create inventory map for quick access
+        const invMap: {[isbn: string]: number} = {};
+        inventoryData.forEach((item: any) => {
+          invMap[item.ISBN] = item.StockQuantity;
+        });
         
         setCustomers(customersData);
         setBooks(booksData);
+        setInventory(invMap);
+        
+        // Check if we have no inventory data and need to initialize it
+        if (inventoryData.length === 0) {
+          console.log('No inventory found, initializing inventory');
+          try {
+            const initRes = await fetch(`${API_BASE_URL}/api/init-inventory`, {
+              method: 'POST'
+            });
+            if (initRes.ok) {
+              const initData = await initRes.json();
+              console.log('Inventory initialized:', initData);
+              
+              // Fetch updated inventory after initialization
+              const updatedInventoryRes = await fetch(`${API_BASE_URL}/api/inventory`);
+              if (updatedInventoryRes.ok) {
+                const updatedInventoryData = await updatedInventoryRes.json();
+                const newInvMap: {[isbn: string]: number} = {};
+                updatedInventoryData.forEach((item: any) => {
+                  newInvMap[item.ISBN] = item.StockQuantity;
+                });
+                setInventory(newInvMap);
+              }
+            }
+          } catch (initErr) {
+            console.error('Error initializing inventory:', initErr);
+          }
+        }
       } catch (err) {
         setError('Failed to load data');
         console.error(err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -62,8 +107,51 @@ const CreateOrder: React.FC = () => {
 
   const handleItemChange = (index: number, field: keyof NewOrderItem, value: string | number) => {
     const newItems = [...orderItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+    
+    // If ISBN changed, update the price automatically
+    if (field === 'ISBN' && typeof value === 'string') {
+      const selectedBook = books.find(book => book.ISBN === value);
+      if (selectedBook) {
+        newItems[index] = { 
+          ...newItems[index], 
+          [field]: value,
+          Price: selectedBook.Price 
+        };
+      } else {
+        newItems[index] = { ...newItems[index], [field]: value };
+      }
+    } else {
+      newItems[index] = { ...newItems[index], [field]: value };
+    }
+    
     setOrderItems(newItems);
+  };
+
+  const validateOrderItems = (): boolean => {
+    for (const item of orderItems) {
+      if (!item.ISBN) {
+        setError('Please select a book for all order items');
+        return false;
+      }
+      
+      if (!item.Quantity || item.Quantity <= 0) {
+        setError('Quantity must be greater than zero for all items');
+        return false;
+      }
+      
+      if (!item.Price || item.Price <= 0) {
+        setError('Price must be greater than zero for all items');
+        return false;
+      }
+      
+      // Check inventory
+      if (inventory[item.ISBN] < item.Quantity) {
+        setError(`Insufficient inventory for selected book (ISBN: ${item.ISBN}). Only ${inventory[item.ISBN]} available.`);
+        return false;
+      }
+    }
+    
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,12 +169,17 @@ const CreateOrder: React.FC = () => {
       return;
     }
 
+    if (!validateOrderItems()) {
+      return;
+    }
+
     const newOrder: NewOrder = {
       CustomerID: selectedCustomer,
       items: orderItems,
     };
 
     try {
+      setLoading(true);
       const response = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers: {
@@ -95,17 +188,36 @@ const CreateOrder: React.FC = () => {
         body: JSON.stringify(newOrder),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to create order');
+        throw new Error(data.error || 'Failed to create order');
       }
 
       setSuccess('Order created successfully!');
       setSelectedCustomer('');
       setOrderItems([]);
-    } catch (err) {
-      setError('Failed to create order');
+      
+      // Refresh inventory data after successful order
+      const inventoryRes = await fetch(`${API_BASE_URL}/api/inventory`);
+      if (inventoryRes.ok) {
+        const inventoryData = await inventoryRes.json();
+        const invMap: {[isbn: string]: number} = {};
+        inventoryData.forEach((item: any) => {
+          invMap[item.ISBN] = item.StockQuantity;
+        });
+        setInventory(invMap);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to create order');
       console.error(err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const getAvailableStock = (isbn: string): number => {
+    return inventory[isbn] || 0;
   };
 
   return (
@@ -114,6 +226,8 @@ const CreateOrder: React.FC = () => {
         Create New Order
       </Typography>
 
+      {loading && <CircularProgress sx={{ display: 'block', mx: 'auto', my: 2 }} />}
+
       <form onSubmit={handleSubmit}>
         <FormControl fullWidth sx={{ mb: 3 }}>
           <InputLabel>Customer</InputLabel>
@@ -121,6 +235,7 @@ const CreateOrder: React.FC = () => {
             value={selectedCustomer}
             onChange={(e) => setSelectedCustomer(e.target.value)}
             label="Customer"
+            disabled={loading}
           >
             {customers.map((customer) => (
               <MenuItem key={customer.CustomerID} value={customer.CustomerID}>
@@ -140,10 +255,13 @@ const CreateOrder: React.FC = () => {
                     value={item.ISBN}
                     onChange={(e) => handleItemChange(index, 'ISBN', e.target.value)}
                     label="Book"
+                    disabled={loading}
                   >
                     {books.map((book) => (
                       <MenuItem key={book.ISBN} value={book.ISBN}>
-                        {book.Title}
+                        {book.Title} {getAvailableStock(book.ISBN) > 0 ? 
+                          `(${getAvailableStock(book.ISBN)} in stock)` : 
+                          '(Out of stock)'}
                       </MenuItem>
                     ))}
                   </Select>
@@ -155,8 +273,10 @@ const CreateOrder: React.FC = () => {
                   type="number"
                   label="Quantity"
                   value={item.Quantity}
-                  onChange={(e) => handleItemChange(index, 'Quantity', parseInt(e.target.value))}
+                  onChange={(e) => handleItemChange(index, 'Quantity', parseInt(e.target.value) || 0)}
                   inputProps={{ min: 1 }}
+                  disabled={loading}
+                  helperText={item.ISBN ? `Max: ${getAvailableStock(item.ISBN)}` : ''}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -165,12 +285,13 @@ const CreateOrder: React.FC = () => {
                   type="number"
                   label="Price"
                   value={item.Price}
-                  onChange={(e) => handleItemChange(index, 'Price', parseFloat(e.target.value))}
+                  onChange={(e) => handleItemChange(index, 'Price', parseFloat(e.target.value) || 0)}
                   inputProps={{ min: 0, step: 0.01 }}
+                  disabled={loading}
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <IconButton onClick={() => handleRemoveItem(index)} color="error">
+                <IconButton onClick={() => handleRemoveItem(index)} color="error" disabled={loading}>
                   <DeleteIcon />
                 </IconButton>
               </Grid>
@@ -182,20 +303,21 @@ const CreateOrder: React.FC = () => {
           startIcon={<AddIcon />}
           onClick={handleAddItem}
           sx={{ mb: 2 }}
+          disabled={loading}
         >
           Add Item
         </Button>
 
         {error && (
-          <Typography color="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 2 }}>
             {error}
-          </Typography>
+          </Alert>
         )}
 
         {success && (
-          <Typography color="success.main" sx={{ mb: 2 }}>
+          <Alert severity="success" sx={{ mb: 2 }}>
             {success}
-          </Typography>
+          </Alert>
         )}
 
         <Button
@@ -203,13 +325,13 @@ const CreateOrder: React.FC = () => {
           variant="contained"
           color="primary"
           fullWidth
-          disabled={!selectedCustomer || orderItems.length === 0}
+          disabled={loading || !selectedCustomer || orderItems.length === 0}
         >
-          Create Order
+          {loading ? 'Creating Order...' : 'Create Order'}
         </Button>
       </form>
     </Paper>
   );
 };
 
-export default CreateOrder; 
+export default CreateOrder;

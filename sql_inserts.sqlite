@@ -426,27 +426,50 @@ INSERT INTO book_author (ISBN, AuthorID) VALUES
 ('0061161721', 'AUTH093');
 
 -- Insert 20 sample records into the customer table
-INSERT INTO customer (CustomerID, Name, Address, Email, PhoneNumber) VALUES
-('CUST001', 'John Doe', '123 Elm St, Springfield, IL', 'johndoe@example.com', '555-1234'),
-('CUST002', 'Jane Smith', '456 Oak St, Springfield, IL', 'janesmith@example.com', '555-5678'),
-('CUST003', 'Alice Johnson', '789 Pine St, Springfield, IL', 'alicejohnson@example.com', '555-9101'),
-('CUST004', 'Bob Brown', '101 Maple St, Springfield, IL', 'bobbrown@example.com', '555-1122'),
-('CUST005', 'Charlie Davis', '202 Birch St, Springfield, IL', 'charliedavis@example.com', '555-3344'),
-('CUST006', 'Diana Evans', '303 Cedar St, Springfield, IL', 'dianaevans@example.com', '555-5566'),
-('CUST007', 'Eve Foster', '404 Dogwood St, Springfield, IL', 'evefoster@example.com', '555-7788'),
-('CUST008', 'Frank Green', '505 Elm St, Springfield, IL', 'frankgreen@example.com', '555-9900'),
-('CUST009', 'Grace Hall', '606 Oak St, Springfield, IL', 'gracehall@example.com', '555-2233'),
-('CUST010', 'Henry Irwin', '707 Pine St, Springfield, IL', 'henryirwin@example.com', '555-4455'),
-('CUST011', 'Ivy Jones', '808 Maple St, Springfield, IL', 'ivyjones@example.com', '555-6677'),
-('CUST012', 'Jack King', '909 Birch St, Springfield, IL', 'jackking@example.com', '555-8899'),
-('CUST013', 'Karen Lee', '1010 Cedar St, Springfield, IL', 'karenlee@example.com', '555-0011'),
-('CUST014', 'Leo Martin', '1111 Dogwood St, Springfield, IL', 'leomartin@example.com', '555-2234'),
-('CUST015', 'Mona Nelson', '1212 Elm St, Springfield, IL', 'monanelson@example.com', '555-4456'),
-('CUST016', 'Nina Owens', '1313 Oak St, Springfield, IL', 'ninaowens@example.com', '555-6678'),
-('CUST017', 'Oscar Perez', '1414 Pine St, Springfield, IL', 'oscarperez@example.com', '555-8890'),
-('CUST018', 'Paul Quinn', '1515 Maple St, Springfield, IL', 'paulquinn@example.com', '555-0012'),
-('CUST019', 'Quincy Reed', '1616 Birch St, Springfield, IL', 'quincyreed@example.com', '555-2235'),
-('CUST020', 'Rachel Scott', '1717 Cedar St, Springfield, IL', 'rachelscott@example.com', '555-4457');
+INSERT INTO customer (CustomerID, Name, Address) VALUES
+('CUST001', 'John Doe', '123 Elm St, Springfield, IL'),
+('CUST002', 'Jane Smith', '456 Oak St, Springfield, IL'),
+('CUST003', 'Alice Johnson', '789 Pine St, Springfield, IL'),
+('CUST004', 'Bob Brown', '101 Maple St, Springfield, IL'),
+('CUST005', 'Charlie Davis', '202 Birch St, Springfield, IL'),
+('CUST006', 'Diana Evans', '303 Cedar St, Springfield, IL'),
+('CUST007', 'Eve Foster', '404 Dogwood St, Springfield, IL'),
+('CUST008', 'Frank Green', '505 Elm St, Springfield, IL'),
+('CUST009', 'Grace Hall', '606 Oak St, Springfield, IL'),
+('CUST010', 'Henry Irwin', '707 Pine St, Springfield, IL'),
+('CUST011', 'Ivy Jones', '808 Maple St, Springfield, IL'),
+('CUST012', 'Jack King', '909 Birch St, Springfield, IL'),
+('CUST013', 'Karen Lee', '1010 Cedar St, Springfield, IL'),
+('CUST014', 'Leo Martin', '1111 Dogwood St, Springfield, IL'),
+('CUST015', 'Mona Nelson', '1212 Elm St, Springfield, IL'),
+('CUST016', 'Nina Owens', '1313 Oak St, Springfield, IL'),
+('CUST017', 'Oscar Perez', '1414 Pine St, Springfield, IL'),
+('CUST018', 'Paul Quinn', '1515 Maple St, Springfield, IL'),
+('CUST019', 'Quincy Reed', '1616 Birch St, Springfield, IL'),
+('CUST020', 'Rachel Scott', '1717 Cedar St, Springfield, IL');
+
+-- Insert 20 sample records into the customer_contact table
+INSERT INTO customer_contact (CustomerID, Email, PhoneNumber) VALUES
+('CUST001', 'johndoe@example.com', '555-1234'),
+('CUST002', 'janesmith@example.com', '555-5678'),
+('CUST003', 'alicejohnson@example.com', '555-9101'),
+('CUST004', 'bobbrown@example.com', '555-1122'),
+('CUST005', 'charliedavis@example.com', '555-3344'),
+('CUST006', 'dianaevans@example.com', '555-5566'),
+('CUST007', 'evefoster@example.com', '555-7788'),
+('CUST008', 'frankgreen@example.com', '555-9900'),
+('CUST009', 'gracehall@example.com', '555-2233'),
+('CUST010', 'henryirwin@example.com', '555-4455'),
+('CUST011', 'ivyjones@example.com', '555-6677'),
+('CUST012', 'jackking@example.com', '555-8899'),
+('CUST013', 'karenlee@example.com', '555-0011'),
+('CUST014', 'leomartin@example.com', '555-2234'),
+('CUST015', 'monanelson@example.com', '555-4456'),
+('CUST016', 'ninaowens@example.com', '555-6678'),
+('CUST017', 'oscarperez@example.com', '555-8890'),
+('CUST018', 'paulquinn@example.com', '555-0012'),
+('CUST019', 'quincyreed@example.com', '555-2235'),
+('CUST020', 'rachelscott@example.com', '555-4457');
 
 -- Insert 20 sample records into the orderItem table
 INSERT INTO orderItem (OrderItemID, OrderID, ISBN, Quantity, Price) VALUES
@@ -498,71 +521,71 @@ INSERT INTO inventory (ISBN, StockQuantity) VALUES
 
 -- Insert 22 sample records into the customer_order table
 INSERT INTO customer_order (OrderID, CustomerID, OrderDate, OrderTotal) VALUES
-('ORD001', 'CUST001', '2023-01-01', 209.94),   -- 2 x 104.97
-('ORD002', 'CUST002', '2023-01-02', 34.99),     -- 1 x 34.99
-('ORD003', 'CUST003', '2023-01-03', 150.00),    -- 3 x 50.00
-('ORD004', 'CUST004', '2023-01-04', 34.98),     -- 2 x 17.49
-('ORD005', 'CUST005', '2023-01-05', 49.95),     -- 1 x 49.95
-('ORD006', 'CUST006', '2023-01-06', 396.00),    -- 4 x 99.00
-('ORD007', 'CUST007', '2023-01-07', 38.49),     -- 1 x 38.49
-('ORD008', 'CUST008', '2023-01-08', 69.99),     -- 1 x 69.99
-('ORD009', 'CUST009', '2023-01-09', 115.47),    -- 3 x 38.49
-('ORD010', 'CUST010', '2023-01-10', 190.00),    -- 2 x 95.00
-('ORD011', 'CUST011', '2023-01-11', 41.99),     -- 1 x 41.99
-('ORD012', 'CUST012', '2023-01-12', 69.98),     -- 2 x 34.99
-('ORD013', 'CUST013', '2023-01-13', 80.35),     -- 5 x 16.07
-('ORD014', 'CUST014', '2023-01-14', 14.00),     -- 1 x 14.00
-('ORD015', 'CUST015', '2023-01-15', 49.90),     -- 2 x 24.95
-('ORD016', 'CUST016', '2023-01-16', 56.85),     -- 3 x 18.95
-('ORD017', 'CUST017', '2023-01-17', 13.00),     -- 1 x 13.00
-('ORD018', 'CUST018', '2023-01-18', 51.90),     -- 2 x 25.95
-('ORD019', 'CUST019', '2023-01-19', 13.76),     -- 4 x 3.44
-('ORD020', 'CUST020', '2023-01-20', 27.50),     -- 1 x 27.50
-('ORD021', 'CUST001', '2023-02-01', 15.98),  -- 2 x 7.99 (Small Gods)
-('ORD022', 'CUST002', '2023-02-02', 7.99);    -- 1 x 7.99 (Going Postal)
+('ORD001', 'CUST001', '2023-01-01', 209.94),
+('ORD002', 'CUST002', '2023-01-02', 34.99),
+('ORD003', 'CUST003', '2023-01-03', 150.00),
+('ORD004', 'CUST004', '2023-01-04', 34.98),
+('ORD005', 'CUST005', '2023-01-05', 49.95),
+('ORD006', 'CUST006', '2023-01-06', 396.00),
+('ORD007', 'CUST007', '2023-01-07', 38.49),
+('ORD008', 'CUST008', '2023-01-08', 69.99),
+('ORD009', 'CUST009', '2023-01-09', 115.47),
+('ORD010', 'CUST010', '2023-01-10', 190.00),
+('ORD011', 'CUST011', '2023-01-11', 41.99),
+('ORD012', 'CUST012', '2023-01-12', 69.98),
+('ORD013', 'CUST013', '2023-01-13', 80.35),
+('ORD014', 'CUST014', '2023-01-14', 14.00),
+('ORD015', 'CUST015', '2023-01-15', 49.90),
+('ORD016', 'CUST016', '2023-01-16', 56.85),
+('ORD017', 'CUST017', '2023-01-17', 13.00),
+('ORD018', 'CUST018', '2023-01-18', 51.90),
+('ORD019', 'CUST019', '2023-01-19', 13.76),
+('ORD020', 'CUST020', '2023-01-20', 27.50),
+('ORD021', 'CUST001', '2023-02-01', 15.98),
+('ORD022', 'CUST002', '2023-02-02', 7.99);
 
 -- Insert 20 sample records into the bookDemand table
-INSERT INTO bookDemand (ID, ISBN, Popularity) VALUES
-('DEM001', '0782140661', 100),
-('DEM002', '0072227885', 95),
-('DEM003', '0471200247', 90),
-('DEM004', '0072227710', 85),
-('DEM005', '1558605525', 80),
-('DEM006', '0972263608', 75),
-('DEM007', '0201615762', 70),
-('DEM008', '0782140114', 65),
-('DEM009', '0321125169', 60),
-('DEM010', '0805317554', 55),
-('DEM011', '1861004486', 50),
-('DEM012', '0735712123', 45),
-('DEM013', '0425188361', 40),
-('DEM014', '0142001740', 35),
-('DEM015', '0596004478', 30),
-('DEM016', '0071414339', 25),
-('DEM017', '0312311354', 20),
-('DEM018', '0312287941', 15),
-('DEM019', '0312243022', 10),
-('DEM020', '0609610570', 5);
+INSERT INTO bookDemand (ISBN, Popularity) VALUES
+('0782140661', 100),
+('0072227885', 95),
+('0471200247', 90),
+('0072227710', 85),
+('1558605525', 80),
+('0972263608', 75),
+('0201615762', 70),
+('0782140114', 65),
+('0321125169', 60),
+('0805317554', 55),
+('1861004486', 50),
+('0735712123', 45),
+('0425188361', 40),
+('0142001740', 35),
+('0596004478', 30),
+('0071414339', 25),
+('0312311354', 20),
+('0312287941', 15),
+('0312243022', 10),
+('0609610570', 5);
 
 -- Insert 20 sample records into the profitMargin table
-INSERT INTO profitMargin (ID, ISBN, SalesTotal, CostTotal) VALUES
-('PROF001', '0782140661', 1049.70, 500.00),
-('PROF002', '0072227885', 349.90, 150.00),
-('PROF003', '0471200247', 500.00, 200.00),
-('PROF004', '0072227710', 174.90, 75.00),
-('PROF005', '1558605525', 499.50, 250.00),
-('PROF006', '0972263608', 990.00, 400.00),
-('PROF007', '0201615762', 384.90, 150.00),
-('PROF008', '0782140114', 699.90, 300.00),
-('PROF009', '0321125169', 384.90, 150.00),
-('PROF010', '0805317554', 950.00, 400.00),
-('PROF011', '1861004486', 419.90, 200.00),
-('PROF012', '0735712123', 349.90, 150.00),
-('PROF013', '0425188361', 160.70, 75.00),
-('PROF014', '0142001740', 140.00, 50.00),
-('PROF015', '0596004478', 249.50, 100.00),
-('PROF016', '0071414339', 189.50, 75.00),
-('PROF017', '0312311354', 130.00, 50.00),
-('PROF018', '0312287941', 259.50, 100.00),
-('PROF019', '0312243022', 34.40, 15.00),
-('PROF020', '0609610570', 82.50, 30.00);
+INSERT INTO profitMargin (ISBN, SalesTotal, CostTotal) VALUES
+('0782140661', 1049.70, 500.00),
+('0072227885', 349.90, 150.00),
+('0471200247', 500.00, 200.00),
+('0072227710', 174.90, 75.00),
+('1558605525', 499.50, 250.00),
+('0972263608', 990.00, 400.00),
+('0201615762', 384.90, 150.00),
+('0782140114', 699.90, 300.00),
+('0321125169', 384.90, 150.00),
+('0805317554', 950.00, 400.00),
+('1861004486', 419.90, 200.00),
+('0735712123', 349.90, 150.00),
+('0425188361', 160.70, 75.00),
+('0142001740', 140.00, 50.00),
+('0596004478', 249.50, 100.00),
+('0071414339', 189.50, 75.00),
+('0312311354', 130.00, 50.00),
+('0312287941', 259.50, 100.00),
+('0312243022', 34.40, 15.00),
+('0609610570', 82.50, 30.00);

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Grid, Card, CardContent, useTheme } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, useTheme, Button, Collapse } from '@mui/material';
 import DataTable from '../components/DataTable';
+import CreateCustomer from '../components/CreateCustomer';
 import { Customer } from '../types';
 import { API_BASE_URL } from '../config';
 
 const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
   const theme = useTheme();
 
   const columns = [
@@ -16,20 +18,20 @@ const Customers: React.FC = () => {
     { id: 'PhoneNumber' as keyof Customer, label: 'Phone Number', minWidth: 150 },
   ];
 
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/customers`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch customers');
-        }
-        const data = await response.json();
-        setCustomers(data);
-      } catch (error) {
-        console.error('Error fetching customers:', error);
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/customers`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch customers');
       }
-    };
+      const data = await response.json();
+      setCustomers(data);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchCustomers();
   }, []);
 
@@ -54,6 +56,21 @@ const Customers: React.FC = () => {
       >
         Customers Database
       </Typography>
+
+      <Button 
+        variant="contained" 
+        color="primary" 
+        sx={{ mb: 3 }}
+        onClick={() => setShowAddForm(!showAddForm)}
+      >
+        {showAddForm ? 'Hide Add Customer Form' : 'Add New Customer'}
+      </Button>
+
+      <Collapse in={showAddForm}>
+        <Box sx={{ mb: 3 }}>
+          <CreateCustomer onSuccess={fetchCustomers} />
+        </Box>
+      </Collapse>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
@@ -206,4 +223,4 @@ const Customers: React.FC = () => {
   );
 };
 
-export default Customers; 
+export default Customers;

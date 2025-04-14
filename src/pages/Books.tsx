@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Grid, Card, CardContent, FormControl, InputLabel, Select, MenuItem, useTheme } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, FormControl, InputLabel, Select, MenuItem, useTheme, Button, Collapse } from '@mui/material';
 import DataTable from '../components/DataTable';
+import CreateBook from '../components/CreateBook';
 import { Book } from '../types';
 import { API_BASE_URL } from '../config';
 
 const Books: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [showAddForm, setShowAddForm] = useState(false);
   const theme = useTheme();
 
   const columns = [
@@ -18,20 +20,20 @@ const Books: React.FC = () => {
     { id: 'Authors' as keyof Book, label: 'Authors', minWidth: 200 },
   ];
 
-  useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/books`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch books');
-        }
-        const data = await response.json();
-        setBooks(data);
-      } catch (error) {
-        console.error('Error fetching books:', error);
+  const fetchBooks = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/books`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch books');
       }
-    };
+      const data = await response.json();
+      setBooks(data);
+    } catch (error) {
+      console.error('Error fetching books:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchBooks();
   }, []);
 
@@ -65,6 +67,21 @@ const Books: React.FC = () => {
       >
         Books Database
       </Typography>
+
+      <Button 
+        variant="contained" 
+        color="primary" 
+        sx={{ mb: 3 }}
+        onClick={() => setShowAddForm(!showAddForm)}
+      >
+        {showAddForm ? 'Hide Add Book Form' : 'Add New Book'}
+      </Button>
+
+      <Collapse in={showAddForm}>
+        <Box sx={{ mb: 3 }}>
+          <CreateBook onSuccess={fetchBooks} />
+        </Box>
+      </Collapse>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
@@ -245,4 +262,4 @@ const Books: React.FC = () => {
   );
 };
 
-export default Books; 
+export default Books;
